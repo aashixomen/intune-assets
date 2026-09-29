@@ -1,4 +1,4 @@
-$wallpaperUrl = "https://raw.githubusercontent.com/aashixomen/intune-assets/main/tapeta2.jpg"
+$wallpaperUrl = "https://raw.githubusercontent.com/aashiomen/intune-assets/main/tapeta2.jpg"
 $dir = "C:\Temp"
 if (!(Test-Path -Path $dir)) { New-Item -ItemType Directory -Path $dir -Force }
 $localPath = "$dir\wallpaper.jpg"
