@@ -1,5 +1,5 @@
 $wallpaperUrl = "https://raw.githubusercontent.com/aashixomen/intune-assets/main/tapeta1.jpg"
-$localPath = "$env:USERPROFILE\Pictures\custom_wallpaper.png"
+$localPath = "$env:USERPROFILE\Pictures\custom_wallpaper.jpg"
 
 # 1. Pobranie pliku do folderu Obrazy użytkownika
 Invoke-WebRequest -Uri $wallpaperUrl -OutFile $localPath
