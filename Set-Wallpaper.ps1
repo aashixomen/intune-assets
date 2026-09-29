@@ -3,29 +3,65 @@ $dir = "C:\Temp"
 if (!(Test-Path -Path $dir)) { New-Item -ItemType Directory -Path $dir -Force }
 $localPath = "$dir\wallpaper.jpg"
 
-# Pobranie pliku do C:\Temp
-Invoke-WebRequest -Uri $wallpaperUrl -OutFile $localPath
+# Pobranie pliku
+Invoke-WebRequest -Uri $wallpaperUrl -OutFile $localPath -UseBasicParsing
 
-# Użycie interfejsu IActiveDesktop / COM component do natywnego i pewnego ustawienia tapety w Win11
-$code = @"
+# Pancerne ustawienie przez COM interface IActiveDesktop (działa tam, gdzie SystemParametersInfo zawodzi)
+$typeDefinition = @"
 using System;
 using System.Runtime.InteropServices;
-namespace Win32 {
-    public class Wallpaper {
-        [DllImport("user32.dll", CharSet = CharSet.Auto)]
-        public static extern int SystemParametersInfo(int uAction, int uParam, string lpvParam, int fuWinIni);
+
+public class ActiveDesktop {
+    [ComImport, Guid("F490EB00-1240-11D1-9888-006097DEACF9")]
+    public class CoClassActiveDesktop {}
+
+    [ComImport, Guid("75048700-EF1F-11D0-9888-006097DEACF9"), InterfaceType(ComInterfaceType.InterfaceIsIUnknown)]
+    public interface IActiveDesktop {
+        void SetWallpaper([MarshalAs(UnmanagedType.LPWStr)] string pwszWallpaper, int reserved);
+        void GetWallpaper([MarshalAs(UnmanagedType.LPWStr)] System.Text.StringBuilder pwszWallpaper, int cchWallpaper, int reserved);
+        void GetWallpaperOptions(IntPtr pwOpts, int reserved);
+        void SetWallpaperOptions(IntPtr pwOpts, int reserved);
+        void SetPattern([MarshalAs(UnmanagedType.LPWStr)] string pwszPattern, int reserved);
+        void GetPattern([MarshalAs(UnmanagedType.LPWStr)] System.Text.StringBuilder pwszPattern, int cchPattern, int reserved);
+        void SetDesktopItemOptions(IntPtr pdiOpts, int reserved);
+        void GetDesktopItemOptions(IntPtr pdiOpts, int reserved);
+        void AddDesktopItem(IntPtr pdi, int reserved);
+        void AddDesktopItemWithUI(IntPtr hwndOwner, IntPtr pdi, int reserved);
+        void ModifyDesktopItem(IntPtr pdi, int flags);
+        void RemoveDesktopItem(IntPtr pdi, int reserved);
+        IntPtr GetDesktopItem(int nID, int reserved);
+        IntPtr GetDesktopItemBy(IntPtr pwszItem, int reserved);
+        void ReadSettings(int dwReserved);
+        void SaveSettings();
+        void GetWallpaperOptions(ref WallpaperOptions pwOpts, int reserved);
+        void SetWallpaperOptions(ref WallpaperOptions pwOpts, int reserved);
+        void ApplyChanges(int dwFlags);
+        void GetDesktopItemByID(IntPtr id, int reserved);
+        void GetDesktopItemBySource([MarshalAs(UnmanagedType.LPWStr)] string pwszSource, IntPtr pdi, int reserved);
+        void SetDesktopItem(IntPtr pdi, int reserved);
+    }
+
+    [StructLayout(LayoutKind.Sequential)]
+    public struct WallpaperOptions {
+        public int dwSize;
+        public int dwStyle;
+    }
+
+    public static void SetWallpaper(string path) {
+        Type t = Type.GetTypeFromCLSID(new Guid("F490EB00-1240-11D1-9888-006097DEACF9"));
+        IActiveDesktop ad = (IActiveDesktop)Activator.CreateInstance(t);
+        ad.SetWallpaper(path, 0);
+        
+        WallpaperOptions opt = new WallpaperOptions();
+        opt.dwSize = Marshal.SizeOf(typeof(WallpaperOptions));
+        opt.dwStyle = 2; // 2 = Stretch/Fill
+        ad.SetWallpaperOptions(ref opt, 0);
+        
+        ad.ApplyChanges(3); // AD_APPLY_ALL | AD_APPLY_FORCE
+        Marshal.ReleaseComObject(ad);
     }
 }
 "@
-Add-Type -TypeDefinition $code
 
-# Wpisanie do rejestru
-Set-ItemProperty -Path 'HKCU:\Control Panel\Desktop' -Name Wallpaper -Value $localPath
-Set-ItemProperty -Path 'HKCU:\Control Panel\Desktop' -Name WallpaperStyle -Value 2
-Set-ItemProperty -Path 'HKCU:\Control Panel\Desktop' -Name TileWallpaper -Value 0
-
-# Odświeżenie pulpitu
-[Win32.Wallpaper]::SystemParametersInfo(0x0014, 0, $localPath, 0x01 -bor 0x02)
-
-# Dodatkowe wymuszenie restartu procesu Eksploratora plików, żeby upewnić się, że odświeży widok
-Stop-Process -Name explorer -Force
+Add-Type -TypeDefinition $typeDefinition -Language CSharp
+[ActiveDesktop]::SetWallpaper($localPath)
