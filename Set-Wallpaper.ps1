@@ -1,24 +1,31 @@
 $wallpaperUrl = "https://raw.githubusercontent.com/aashixomen/intune-assets/main/tapeta1.jpg"
-$localPath = "$env:USERPROFILE\Pictures\custom_wallpaper.jpg"
+$dir = "C:\Temp"
+if (!(Test-Path -Path $dir)) { New-Item -ItemType Directory -Path $dir -Force }
+$localPath = "$dir\wallpaper.jpg"
 
-# Pobranie pliku
+# Pobranie pliku do C:\Temp
 Invoke-WebRequest -Uri $wallpaperUrl -OutFile $localPath
 
-# Ustawienie wpisów w rejestrze dla aktywnego użytkownika
-Set-ItemProperty -Path 'HKCU:\Control Panel\Desktop' -Name Wallpaper -Value $localPath
-Set-ItemProperty -Path 'HKCU:\Control Panel\Desktop' -Name WallpaperStyle -Value 2 # 2 = Rozciągnij/Wypełnij (Fill), 10 = Dopasuj, 6 = Rozciągnij
-Set-ItemProperty -Path 'HKCU:\Control Panel\Desktop' -Name TileWallpaper -Value 0
-
-# Prawdziwe odświeżenie pulpitu za pomocą API Win32 (SPI_SETDESKWALLPAPER)
+# Użycie interfejsu IActiveDesktop / COM component do natywnego i pewnego ustawienia tapety w Win11
 $code = @"
 using System;
 using System.Runtime.InteropServices;
-public class WallpaperManager {
-    [DllImport("user32.dll", CharSet = CharSet.Auto, SetLastError = true)]
-    public static extern int SystemParametersInfo(int uAction, int uParam, string lpvParam, int fuWinIni);
+namespace Win32 {
+    public class Wallpaper {
+        [DllImport("user32.dll", CharSet = CharSet.Auto)]
+        public static extern int SystemParametersInfo(int uAction, int uParam, string lpvParam, int fuWinIni);
+    }
 }
 "@
 Add-Type -TypeDefinition $code
 
-# SPIF_UPDATEINIFILE (0x01) | SPIF_SENDCHANGE (0x02)
-[WallpaperManager]::SystemParametersInfo(0x0014, 0, $localPath, 0x01 -bor 0x02)
+# Wpisanie do rejestru
+Set-ItemProperty -Path 'HKCU:\Control Panel\Desktop' -Name Wallpaper -Value $localPath
+Set-ItemProperty -Path 'HKCU:\Control Panel\Desktop' -Name WallpaperStyle -Value 2
+Set-ItemProperty -Path 'HKCU:\Control Panel\Desktop' -Name TileWallpaper -Value 0
+
+# Odświeżenie pulpitu
+[Win32.Wallpaper]::SystemParametersInfo(0x0014, 0, $localPath, 0x01 -bor 0x02)
+
+# Dodatkowe wymuszenie restartu procesu Eksploratora plików, żeby upewnić się, że odświeży widok
+Stop-Process -Name explorer -Force
