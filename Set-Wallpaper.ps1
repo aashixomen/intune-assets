@@ -1,17 +1,24 @@
 $wallpaperUrl = "https://raw.githubusercontent.com/aashixomen/intune-assets/main/tapeta1.jpg"
 $localPath = "$env:USERPROFILE\Pictures\custom_wallpaper.jpg"
 
-# 1. Pobranie pliku do folderu Obrazy użytkownika
+# Pobranie pliku
 Invoke-WebRequest -Uri $wallpaperUrl -OutFile $localPath
 
-# 2. Bezpośrednie i natywne wymuszenie tapety w API Windowsa (SystemParametersInfo)
+# Ustawienie wpisów w rejestrze dla aktywnego użytkownika
+Set-ItemProperty -Path 'HKCU:\Control Panel\Desktop' -Name Wallpaper -Value $localPath
+Set-ItemProperty -Path 'HKCU:\Control Panel\Desktop' -Name WallpaperStyle -Value 2 # 2 = Rozciągnij/Wypełnij (Fill), 10 = Dopasuj, 6 = Rozciągnij
+Set-ItemProperty -Path 'HKCU:\Control Panel\Desktop' -Name TileWallpaper -Value 0
+
+# Prawdziwe odświeżenie pulpitu za pomocą API Win32 (SPI_SETDESKWALLPAPER)
 $code = @"
 using System;
 using System.Runtime.InteropServices;
-public class Wallpaper {
-    [DllImport("user32.dll", CharSet = CharSet.Auto)]
+public class WallpaperManager {
+    [DllImport("user32.dll", CharSet = CharSet.Auto, SetLastError = true)]
     public static extern int SystemParametersInfo(int uAction, int uParam, string lpvParam, int fuWinIni);
 }
 "@
 Add-Type -TypeDefinition $code
-[Wallpaper]::SystemParametersInfo(0x0014, 0, $localPath, 0x01 -bor 0x02)
+
+# SPIF_UPDATEINIFILE (0x01) | SPIF_SENDCHANGE (0x02)
+[WallpaperManager]::SystemParametersInfo(0x0014, 0, $localPath, 0x01 -bor 0x02)
