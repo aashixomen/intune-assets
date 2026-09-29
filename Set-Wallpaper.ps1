@@ -1,4 +1,4 @@
-$wallpaperUrl = "https://raw.githubusercontent.com/aashixomen/intune-assets/main/tapeta1.png"
+$wallpaperUrl = "https://raw.githubusercontent.com/aashixomen/intune-assets/main/tapeta1.jpg"
 $localPath = "$env:USERPROFILE\Pictures\custom_wallpaper.png"
 
 # 1. Pobranie pliku do folderu Obrazy użytkownika
